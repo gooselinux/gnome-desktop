@@ -1,0 +1,16 @@
+diff -up gnome-desktop-2.28.2/libgnome-desktop/gnome-rr.c.randr-version gnome-desktop-2.28.2/libgnome-desktop/gnome-rr.c
+--- gnome-desktop-2.28.2/libgnome-desktop/gnome-rr.c.randr-version	2010-02-12 22:34:08.220397527 -0500
++++ gnome-desktop-2.28.2/libgnome-desktop/gnome-rr.c	2010-02-16 11:20:55.832866111 -0500
+@@ -630,6 +630,12 @@ gnome_rr_screen_new (GdkScreen *gdk_scre
+ 	screen->randr_event_base = event_base;
+ 
+ 	XRRQueryVersion (dpy, &screen->rr_major_version, &screen->rr_minor_version);
++	if (screen->rr_minor_version < 2) {
++	    g_set_error (error, GNOME_RR_ERROR, GNOME_RR_ERROR_NO_RANDR_EXTENSION,
++            _("RANDR extension is too old (< 1.2)"));
++	    g_free (screen);
++	    return NULL;
++	}
+ 
+ 	screen->info = screen_info_new (screen, TRUE, error);
+ 	

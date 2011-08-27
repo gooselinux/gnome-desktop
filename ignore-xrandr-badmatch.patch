@@ -1,0 +1,17 @@
+diff --git a/libgnome-desktop/gnome-rr.c b/libgnome-desktop/gnome-rr.c
+index 6f23fbb..b744e38 100644
+--- a/libgnome-desktop/gnome-rr.c
++++ b/libgnome-desktop/gnome-rr.c
+@@ -683,8 +683,11 @@ gnome_rr_screen_set_size (GnomeRRScreen *screen,
+ {
+     g_return_if_fail (screen != NULL);
+     
++    gdk_error_trap_push ();
+     XRRSetScreenSize (screen->xdisplay, screen->xroot,
+ 		      width, height, mm_width, mm_height);
++    gdk_flush ();
++    gdk_error_trap_pop (); /* ignore error */
+ }
+ 
+ void
+

@@ -1,0 +1,12 @@
+diff -up gnome-desktop-2.28.2/libgnome-desktop/gnome-bg.c.width-for-height gnome-desktop-2.28.2/libgnome-desktop/gnome-bg.c
+--- gnome-desktop-2.28.2/libgnome-desktop/gnome-bg.c.width-for-height	2010-04-21 12:40:03.985111930 -0400
++++ gnome-desktop-2.28.2/libgnome-desktop/gnome-bg.c	2010-04-21 12:40:12.654363778 -0400
+@@ -1257,7 +1257,7 @@ gnome_bg_get_pixmap_from_root (GdkScreen
+ 	}
+ 
+ 	width = gdk_screen_get_width (screen);
+-	height = gdk_screen_get_width (screen);
++	height = gdk_screen_get_height (screen);
+ 
+ 	pixmap = gdk_pixmap_new (source_pixmap != NULL? source_pixmap :
+ 				 gdk_screen_get_root_window (screen),

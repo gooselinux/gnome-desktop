@@ -1,0 +1,124 @@
+diff -up gnome-desktop-2.27.4/libgnome-desktop/edid.h.concatenate-edid-descriptors gnome-desktop-2.27.4/libgnome-desktop/edid.h
+--- gnome-desktop-2.27.4/libgnome-desktop/edid.h.concatenate-edid-descriptors	2009-04-19 13:39:06.000000000 -0400
++++ gnome-desktop-2.27.4/libgnome-desktop/edid.h	2009-07-15 12:49:00.883963393 -0400
+@@ -183,12 +183,13 @@ struct MonitorInfo
+ 						 */
+ 
+     /* Optional product description */
+-    char		dsc_serial_number[14];
+-    char		dsc_product_name[14];
+-    char		dsc_string[14];		/* Unspecified ASCII data */
++    char	       *dsc_serial_number;
++    char	       *dsc_product_name;
++    char	       *dsc_string;		/* Unspecified ASCII data */
+ };
+ 
+ MonitorInfo *decode_edid (const uchar *data);
++void         free_edid (MonitorInfo *);
+ char *       make_display_name (const char        *output_name,
+ 				const MonitorInfo *info);
+ 
+diff -up gnome-desktop-2.27.4/libgnome-desktop/edid-parse.c.concatenate-edid-descriptors gnome-desktop-2.27.4/libgnome-desktop/edid-parse.c
+--- gnome-desktop-2.27.4/libgnome-desktop/edid-parse.c.concatenate-edid-descriptors	2009-04-19 13:39:06.000000000 -0400
++++ gnome-desktop-2.27.4/libgnome-desktop/edid-parse.c	2009-07-15 12:53:51.648990812 -0400
+@@ -349,27 +349,44 @@ decode_standard_timings (const uchar *ed
+     return TRUE;
+ }
+ 
+-static void
+-decode_lf_string (const uchar *s, int n_chars, char *result)
++static char *
++decode_lf_string (const uchar *s, int n_chars, char *prev)
+ {
+     int i;
++    char *ret, *tmp;
++
++    tmp = g_malloc0 (n_chars);
++
+     for (i = 0; i < n_chars; ++i)
+     {
+ 	if (s[i] == 0x0a)
+ 	{
+-	    *result++ = '\0';
++	    tmp[i] = '\0';
+ 	    break;
+ 	}
+ 	else if (s[i] == 0x00)
+ 	{
+ 	    /* Convert embedded 0's to spaces */
+-	    *result++ = ' ';
++	    tmp[i] = ' ';
+ 	}
+ 	else
+ 	{
+-	    *result++ = s[i];
++	    tmp[i] = s[i];
+ 	}
+     }
++
++    if (prev)
++    {
++       ret = g_strjoin(NULL, prev, tmp, NULL);
++       g_free(prev);
++       g_free(tmp);
++    }
++    else
++    {
++       ret = tmp;
++    }
++
++    return ret;
+ }
+ 
+ static void
+@@ -379,13 +396,16 @@ decode_display_descriptor (const uchar *
+     switch (desc[0x03])
+     {
+     case 0xFC:
+-	decode_lf_string (desc + 5, 13, info->dsc_product_name);
++	info->dsc_product_name = decode_lf_string (desc + 5, 13,
++                                                   info->dsc_product_name);
+ 	break;
+     case 0xFF:
+-	decode_lf_string (desc + 5, 13, info->dsc_serial_number);
++	info->dsc_serial_number = decode_lf_string (desc + 5, 13,
++                                                    info->dsc_serial_number);
+ 	break;
+     case 0xFE:
+-	decode_lf_string (desc + 5, 13, info->dsc_string);
++	info->dsc_string = decode_lf_string (desc + 5, 13,
++                                             info->dsc_string);
+ 	break;
+     case 0xFD:
+ 	/* Range Limits */
+@@ -514,6 +534,18 @@ decode_check_sum (const uchar *edid,
+     info->checksum = check;
+ }
+ 
++void
++free_edid (MonitorInfo *info)
++{
++    if (info)
++    {
++	g_free (info->dsc_product_name);
++	g_free (info->dsc_serial_number);
++	g_free (info->dsc_string);
++    }
++    g_free (info);
++}
++
+ MonitorInfo *
+ decode_edid (const uchar *edid)
+ {
+diff -up gnome-desktop-2.27.4/libgnome-desktop/gnome-rr-config.c.concatenate-edid-descriptors gnome-desktop-2.27.4/libgnome-desktop/gnome-rr-config.c
+--- gnome-desktop-2.27.4/libgnome-desktop/gnome-rr-config.c.concatenate-edid-descriptors	2009-06-29 19:35:54.000000000 -0400
++++ gnome-desktop-2.27.4/libgnome-desktop/gnome-rr-config.c	2009-07-15 12:47:57.734218844 -0400
+@@ -491,7 +491,7 @@ gnome_rr_config_new_current (GnomeRRScre
+ 	    output->display_name = make_display_name (
+ 		gnome_rr_output_get_name (rr_output), info);
+ 		
+-	    g_free (info);
++	    free_edid (info);
+ 		
+ 	    crtc = gnome_rr_output_get_crtc (rr_output);
+ 	    mode = crtc? gnome_rr_crtc_get_current_mode (crtc) : NULL;

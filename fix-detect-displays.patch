@@ -1,0 +1,73 @@
+diff -up gnome-desktop-2.28.2/libgnome-desktop/gnome-rr.c.fix-detect-displays gnome-desktop-2.28.2/libgnome-desktop/gnome-rr.c
+--- gnome-desktop-2.28.2/libgnome-desktop/gnome-rr.c.fix-detect-displays	2010-06-08 19:48:45.176878457 -0400
++++ gnome-desktop-2.28.2/libgnome-desktop/gnome-rr.c	2010-07-08 17:12:55.775700535 -0400
+@@ -744,6 +744,51 @@ gnome_rr_screen_get_timestamps (GnomeRRS
+ 	*config_timestamp_ret = screen->info->resources->configTimestamp;
+ }
+ 
++static gboolean
++gnome_rr_screen_force_timestamp_update (GnomeRRScreen *screen)
++{
++    GnomeRRCrtc *crtc;
++    XRRCrtcInfo *current_info;
++    Status status;
++    gboolean timestamp_updated;
++
++    timestamp_updated = FALSE;
++
++    crtc = screen->info->crtcs[0];
++
++    if (crtc == NULL)
++	goto out;
++
++    current_info = XRRGetCrtcInfo (screen->xdisplay,
++				   screen->info->resources,
++				   crtc->id);
++
++    if (current_info == NULL)
++	goto out;
++
++    gdk_error_trap_push ();
++    status = XRRSetCrtcConfig (screen->xdisplay,
++			       screen->info->resources,
++			       crtc->id,
++			       current_info->timestamp,
++			       current_info->x,
++			       current_info->y,
++			       current_info->mode,
++			       current_info->rotation,
++			       current_info->outputs,
++			       current_info->noutput);
++
++    XRRFreeCrtcInfo (current_info);
++
++    gdk_flush ();
++    if (gdk_error_trap_pop ())
++	goto out;
++
++    if (status == RRSetConfigSuccess)
++	timestamp_updated = TRUE;
++out:
++    return timestamp_updated;
++}
+ 
+ /**
+  * gnome_rr_screen_refresh
+@@ -762,8 +807,16 @@ gboolean
+ gnome_rr_screen_refresh (GnomeRRScreen *screen,
+ 			 GError       **error)
+ {
++    gboolean refreshed;
+     g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+-    return screen_update (screen, FALSE, TRUE, error);
++
++
++    XGrabServer (screen->xdisplay);
++    refreshed = screen_update (screen, FALSE, TRUE, error);
++    gnome_rr_screen_force_timestamp_update (screen);
++    XUngrabServer (screen->xdisplay);
++
++    return refreshed;
+ }
+ 
+ GnomeRRMode **
